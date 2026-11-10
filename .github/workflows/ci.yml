@@ -1,0 +1,39 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    # A container needs namespaces, mounts and cgroups, so the tests run as root on a real Linux machine (the runner is a VM, not a
+    # container).  Docker, which the runner has, is the oracle: the same image, command and limits are run in `docker run` and in this
+    # runtime, and what the process sees from inside is compared.
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install the development dependencies
+        run: python -m pip install pytest
+      - name: Show what is compared
+        run: |
+          uname -r
+          docker version --format 'docker {{.Server.Version}}'
+          stat -fc 'cgroup file system: %T' /sys/fs/cgroup
+          python --version
+      - name: Pull the test image
+        run: docker pull alpine:3.19
+      - name: Lint (pyflakes)
+        run: python -m pip install pyflakes && python -m pyflakes src tests benchmarks
+      - name: Run the tests as root
+        run: sudo env "PATH=$PATH" PYTHONDONTWRITEBYTECODE=1 python -m pytest -v -p no:cacheprovider
+      - name: Benchmark (smoke run)
+        run: sudo env "PATH=$PATH" PYTHONDONTWRITEBYTECODE=1 python benchmarks/bench.py 3
