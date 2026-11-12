@@ -84,7 +84,7 @@ and it was a real bug here until the Docker comparison caught it.
 
 ## How it is checked
 
-`pytest` as root on Linux with Docker installed (without them the tests that need them are skipped, and the pure ones still run). In the VM (Ubuntu 24.04, kernel 6.8, Docker 29.5.2, Python 3.12) the whole suite is **178 tests: 178 passed, none skipped, 3 min 33 s**. The pure tests (sizes, parsers, the BPF program, netlink encoding) run anywhere.
+`pytest` as root on Linux with Docker installed (without them the tests that need them are skipped, and the pure ones still run). **179 tests, none skipped.** In the development VM (Ubuntu 24.04, kernel 6.8, Docker 29.5.2, Python 3.12) the whole suite passed in 3 min 33 s. CI (GitHub Actions, as root, with the runner's own Docker) runs all of them on Ubuntu 24.04 (kernel 6.x, Docker 28.0) with Python 3.9, 3.12 and 3.13, and on `ubuntu-latest` (Ubuntu 26.04, kernel 7.0, Docker 29.4) with Python 3.13: 179 passed in each. The pure tests (sizes, parsers, the BPF program, netlink encoding) run anywhere.
 
 | | what is compared | against |
 |---|---|---|
