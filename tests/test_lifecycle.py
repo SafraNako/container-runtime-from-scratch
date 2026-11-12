@@ -38,9 +38,18 @@ def test_detached_output_goes_to_the_log(kk, image):
     kk("run", "-d", "--name", "talk", "--network", "none", IMAGE, "sh", "-c", "echo one; echo two >&2; echo three")
     wait_status(kk, "talk", "exited")
     out = kk("logs", "talk")
+    # two streams: each is in order, but their order against each other is not kept (they are two pipes, read as they become ready: Docker's
+    # log driver has the same limit); so the last line of the log may be "two" or "three"
     assert out.out.splitlines() == ["one", "three"] and out.err == "two\n"
-    assert kk("logs", "--tail", "1", "talk").out == "three\n"
     assert kk("wait", "talk").out == "0\n"
+
+
+def test_logs_tail_counts_lines_from_the_end(kk, image):
+    kk("run", "-d", "--name", "tails", "--network", "none", IMAGE, "sh", "-c", "echo a; echo b; echo three")
+    wait_status(kk, "tails", "exited")
+    assert kk("logs", "--tail", "1", "tails").out == "three\n"
+    assert kk("logs", "--tail", "2", "tails").out == "b\nthree\n"
+    assert kk("logs", "tails").out == "a\nb\nthree\n"
 
 
 def test_logs_follow_until_the_container_ends(kk, image):
