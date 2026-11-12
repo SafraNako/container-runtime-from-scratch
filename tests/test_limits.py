@@ -26,7 +26,12 @@ def test_without_limits_everything_is_max(kk, docker, image):
     script = "cat /sys/fs/cgroup/memory.max /sys/fs/cgroup/pids.max /sys/fs/cgroup/cpu.max"
     mine = kk("run", "--rm", "--network", "none", IMAGE, "sh", "-c", script)
     theirs = docker("run", "--rm", "--network", "none", IMAGE, "sh", "-c", script)
-    assert mine.out == theirs.out == "max\nmax\nmax 100000\n"
+    assert mine.out == "max\nmax\nmax 100000\n"
+    memory, pids, cpu = theirs.out.split("\n")[:3]
+    assert (memory, cpu) == ("max", "max 100000")
+    # Docker on a host whose cgroup driver is systemd gets a pids.max that nobody asked for: the TasksMax that systemd gives every scope
+    # (17436 on a CI runner).  This runtime sets no limit unless it is asked to.
+    assert pids == "max" or pids.isdigit(), pids
 
 
 def test_a_process_that_uses_too_much_memory_is_killed(kk, docker, image):

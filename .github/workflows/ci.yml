@@ -11,11 +11,18 @@ jobs:
     # A container needs namespaces, mounts and cgroups, so the tests run as root on a real Linux machine (the runner is a VM, not a
     # container).  Docker, which the runner has, is the oracle: the same image, command and limits are run in `docker run` and in this
     # runtime, and what the process sees from inside is compared.
-    runs-on: ubuntu-latest
+    # Ubuntu 24.04 is the system the tests were written on; "ubuntu-latest" (Ubuntu 26.04 by now, which has no Python 3.9 for setup-python)
+    # is one more check on a newer kernel and Docker.
+    runs-on: ${{ matrix.os }}
+    name: test (${{ matrix.os }}, python ${{ matrix.python-version }})
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.12", "3.13"]
+        include:
+          - { os: ubuntu-24.04, python-version: "3.9" }
+          - { os: ubuntu-24.04, python-version: "3.12" }
+          - { os: ubuntu-24.04, python-version: "3.13" }
+          - { os: ubuntu-latest, python-version: "3.13" }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

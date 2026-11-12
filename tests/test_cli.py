@@ -1,9 +1,7 @@
 """The command line: errors, tables, JSON, who may run it."""
 import json
 import os
-import subprocess
 import sys
-
 
 from conftest import IMAGE, SRC, needs_root
 
@@ -68,9 +66,35 @@ def test_create_start_and_the_exit_code_of_start(kk, image):
 
 
 def test_root_is_needed(root, image):
-    env = dict(os.environ, PYTHONPATH=SRC, KONTEYNER_ROOT=root, PYTHONDONTWRITEBYTECODE="1")
-    p = subprocess.run([sys.executable, "-m", "kendi_konteyner", "run", IMAGE, "true"], env=env, capture_output=True, text=True, preexec_fn=lambda: os.setuid(65534))
-    assert p.returncode != 0 and ("root" in p.stderr or "Permission" in p.stderr)
+    """The command line of a user that is not root: a clear message and a failure.  It runs in a forked copy of this process that gives up
+    root first (a new interpreter would have to read the source from a directory that the other user may not enter, as on a CI runner)."""
+    sys.path.insert(0, SRC)
+    from kendi_konteyner.cli import main
+
+    r, w = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        code = 99
+        try:
+            sys.stderr = os.fdopen(w, "w")  # (pytest has replaced sys.stderr: writing to descriptor 2 would not reach it)
+            os.setgroups([])
+            os.setgid(65534)
+            os.setuid(65534)
+            code = main(["--root", root, "run", IMAGE, "true"])
+            sys.stderr.flush()
+        finally:
+            os._exit(code)
+    os.close(w)
+    chunks = []
+    while True:
+        data = os.read(r, 4096)
+        if not data:
+            break
+        chunks.append(data)
+    os.close(r)
+    _, status = os.waitpid(pid, 0)
+    message = b"".join(chunks).decode()
+    assert os.waitstatus_to_exitcode(status) == 1 and "needs root" in message, message
 
 
 def test_version_and_help(kk):

@@ -2,6 +2,7 @@
 import json
 import os
 import re
+import shutil
 import socket
 import subprocess
 import time
@@ -95,10 +96,16 @@ def test_each_container_has_its_own_address_and_it_is_given_back(kk, root, image
 
 
 @pytest.mark.skipif(not internet(), reason="no internet")
-def test_the_outside_world_is_reached_through_nat(kk, image):
+def test_the_outside_world_is_reached_through_nat(kk, docker, image):
     out = kk("run", "--rm", IMAGE, "sh", "-c", "ping -c 1 -W 3 1.1.1.1 | tail -2 | head -1; (printf 'GET / HTTP/1.0\\r\\n\\r\\n'; sleep 2) | nc 1.1.1.1 80 | head -1")
-    assert "1 packets received" in out.out or "1 received" in out.out
-    assert "HTTP/1." in out.out  # a web server of the internet answered through the NAT
+    assert "HTTP/1." in out.out  # a web server of the internet answered through the NAT (whatever it answered: Cloudflare says 403 to this)
+    # ICMP: only where it gets answers at all (the networks of some CI runners drop it): the probe is the same ping, from Docker or the host
+    if shutil.which("ping"):
+        icmp_works = subprocess.run(["ping", "-c", "1", "-W", "3", "1.1.1.1"], capture_output=True).returncode == 0
+    else:
+        icmp_works = docker("run", "--rm", IMAGE, "ping", "-c", "1", "-W", "3", "1.1.1.1").code == 0
+    if icmp_works:
+        assert "1 packets received" in out.out or "1 received" in out.out
 
 
 def test_what_the_kernel_was_told(kk, image):
