@@ -117,6 +117,8 @@ Honest list; everything here was seen, not guessed.
 * `pull` handles public images only (anonymous tokens): no login, no `docker.io` credentials, no zstd-compressed layers, one platform (this machine's).
 * No `build`, no `-p` (port publishing: reach a container by its address instead), no volumes or networks as objects, IPv4 only, one bridge.
 * Needs **root** and **cgroups v2**; the memory limit also switches swap off for the container (`memory.swap.max 0`).
+* The supplementary groups of `exec -u user` follow Docker 29 (a group that lists the user is there once). Docker 28.0 lists the primary group twice
+  (`groups=1,2,2,4`); the test compares the groups as a set, so that it passes against both.
 * Without `--pids-limit` the container has no process limit (`pids.max` is `max`). Docker on a host whose cgroup driver is systemd shows the
   `TasksMax` that systemd gives every scope instead (17436 on the GitHub runner), and the test accepts both.
 * A container is not a security boundary here that anyone should rely on. This is a learning project that was compared with Docker on what it could

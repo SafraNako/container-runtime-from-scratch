@@ -1,5 +1,6 @@
 """Running a second process in a running container."""
 import os
+import re
 import time
 
 import pytest
@@ -44,12 +45,18 @@ def test_exec_sees_what_the_container_sees(kk, docker, pair):
     assert int(kk("exec", "sleeper", "sh", "-c", count).out) == int(docker("exec", "kk-sleeper", "sh", "-c", count).out) + 6
 
 
+def groups_as_sets(text):
+    """Docker 28.0 lists the primary group twice in the supplementary groups of ``exec -u daemon`` (``groups=1,2,2,4``), Docker 29 once
+    (this runtime does what 29 does): the groups are compared as sets."""
+    return re.sub(r"groups=(\S+)", lambda m: "groups=" + ",".join(sorted(set(m.group(1).split(",")))), text)
+
+
 def test_exec_options(kk, docker, pair):
     for argv in (["-e", "X=1", "-e", "Y=a b"], ["-u", "nobody"], ["-w", "/usr/share"], ["-u", "daemon", "-w", "/var", "-e", "Z=3"]):
         script = "id; pwd; echo $X $Y $Z; grep -E '^(CapEff|CapPrm):' /proc/self/status; echo $HOME"
         mine = kk("exec", *argv, "sleeper", "sh", "-c", script)
         theirs = docker("exec", *argv, "kk-sleeper", "sh", "-c", script)
-        assert mine.out == theirs.out and mine.code == theirs.code, argv
+        assert groups_as_sets(mine.out) == groups_as_sets(theirs.out) and mine.code == theirs.code, argv
 
 
 def test_exec_exit_codes_and_errors(kk, docker, pair):
